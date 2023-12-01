@@ -9,21 +9,32 @@ struct AveragedPerceptron {
 
 impl AveragedPerceptron {
 
-    pub fn new() -> AveragedPerceptron {
-        let mut feature_weights: HashMap<String,HashMap<String,f32>> = HashMap::new() ; 
-        let weights_str: String = read_to_string( "weights.json" ).expect( "Could not read weights.json" ) ;
-        let output: json::Value = json::from_str( weights_str.as_str() ).expect( "Could not convert weights.json to Value" ) ;
-        for ( feature_name , value ) in output.as_object().unwrap() {
+    pub fn new(
+        weights_filepath: &str , 
+        classes_filepath: &str
+    ) -> AveragedPerceptron {
+
+        // Read weights for each feature
+        // from the JSON file
+        // The key indicates the feature name, and value, its weight
+        let mut feature_weights: HashMap<String,HashMap<String,f32>> = HashMap::new() ;
+        let weights_str: String = read_to_string( weights_filepath ).expect( "Could not read weights.json" ) ;
+        let weights_json: json::Value = json::from_str( weights_str.as_str() ).expect( "Could not convert weights.json to json::Value" ) ;
+        for ( feature_name , value ) in weights_json.as_object().unwrap() {
             let mut weights: HashMap<String,f32> = HashMap::new() ; 
             for ( tag , weight ) in value.as_object().unwrap() {
                 weights.insert( tag.to_string() , weight.as_f64().unwrap() as f32 ) ; 
             }
             feature_weights.insert( feature_name.to_string() , weights ) ;
         }
-        let classes_str = read_to_string( "classes.txt" ).expect( "Could not read classes.txt as string") ; 
-        let classes: Vec<String> = classes_str.split( "\n" )
+
+        // Read names of classes from the text file
+        // Each line contains a single class name
+        let classes_str = read_to_string( classes_filepath ).expect( "Could not read classes.txt as string") ; 
+        let classes: Vec<String> = classes_str.split( '\n' )
                                                   .map( |class| class.trim().to_string() )  
                                                   .collect() ;
+
         AveragedPerceptron { 
             feature_weights, 
             classes
@@ -36,7 +47,7 @@ impl AveragedPerceptron {
     ) -> (&str , f32) {
 
         let mut scores: HashMap<&str,f32> = HashMap::new() ; 
-        for ( feature , value ) in word_features.into_iter() {
+        for ( feature , value ) in word_features {
             if self.feature_weights.contains_key( feature.as_str() ) && value != 0 {
                 let weights = self.feature_weights.get( feature.as_str() ).unwrap() ; 
                 for ( label , weight ) in weights.iter() {
@@ -51,7 +62,7 @@ impl AveragedPerceptron {
                             .max_by( | a , b | scores.get(a.as_str()).unwrap_or( &0.0 ).partial_cmp( 
                                                scores.get(b.as_str()).unwrap_or( &0.0 ) ).unwrap() )
                             .unwrap() ;
-        let exp_scores: Vec<f32> = scores.iter().map( |( _ , v )| v.exp() ).collect() ; 
+        let exp_scores: Vec<f32> = scores.values().map( |v| v.exp() ).collect() ; 
         let exp_scores_sum: f32 = exp_scores.iter().sum() ; 
         let softmax_scores: Vec<f32> = exp_scores.iter().map( | score | score / exp_scores_sum ).collect() ; 
         let max_softmax_score: f32 = softmax_scores.into_iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap() ;
@@ -68,29 +79,93 @@ struct PerceptronTagger {
 
 impl PerceptronTagger {
 
-    pub fn new() -> PerceptronTagger {
+    pub fn new(
+        weights_filepath: &str , 
+        classes_filepath: &str , 
+        tags_filepath: &str
+    ) -> PerceptronTagger {
+
+        // Read tags from the JSON file
+        // The key represents a word and the value its POS-tag
         let mut tags: HashMap<String,String> = HashMap::new() ; 
-        let tags_str: String = read_to_string( "tags.json" ).expect( "Could not read tags.json" ) ;
-        let output: json::Value = json::from_str( &tags_str ).expect( "Could not convert tags.json to Value" ) ;
-        for ( word , tag ) in output.as_object().unwrap().into_iter() {
+        let tags_str: String = read_to_string( tags_filepath ).expect( "Could not read tags.json" ) ;
+        let tags_json: json::Value = json::from_str( &tags_str ).expect( "Could not convert tags.json to json::Value" ) ;
+        for ( word , tag ) in tags_json.as_object().unwrap() {
             tags.insert( word.to_string() , tag.to_string() ) ;
         }
+
         PerceptronTagger { 
-            model: AveragedPerceptron::new() , 
+            model: AveragedPerceptron::new( weights_filepath , classes_filepath ) , 
             tags
          }
     }
 
+    pub fn tag<'a>(
+        &'a self , 
+        sentence: &'a str
+    ) -> Vec<(&'a str,String,f32)> {
+        self.assign_tags( sentence.split_whitespace().collect::<Vec<&str>>() )
+    }
+
+    fn assign_tags<'a>(
+        &'a self ,
+        tokens: Vec<&'a str>
+    ) -> Vec<(&'a str,String,f32)> {
+
+        let mut prev: &str = "-START-" ; 
+        let mut prev2: &str = "-START2-" ; 
+        let mut output: Vec<(&str,String,f32)> = Vec::new() ; 
+
+        let mut context: Vec<&str> = Vec::new() ; 
+        context.push( prev ) ; 
+        context.push( prev2 ) ; 
+        for token in &tokens {
+            context.push( 
+                if token.contains( "'-'" ) && !token.starts_with( '-' ) {
+                    "!HYPHEN"
+                }
+                else if token.parse::<usize>().is_ok() && token.len() == 4 {
+                    "!YEAR"
+                }
+                else if token[0..1].parse::<usize>().is_ok() {
+                    "!DIGITS" 
+                }
+                else {
+                    token
+                }
+            ) ; 
+        }
+
+        context.push( "-END-" ) ; 
+        context.push( "-END2-" ) ; 
+
+        for ( i , token ) in tokens.into_iter().enumerate() {
+
+            if self.tags.get( token ).is_none() {
+                let features = Self::get_features( i + 2 , token, &context, prev, prev2 ) ; 
+                let (tag , conf) = self.model.predict( features ) ; 
+                output.push( ( token , tag.to_string() , conf ) ) ; 
+                prev2 = prev ; 
+                prev = tag ; 
+            }
+            else {
+                output.push( ( token , self.tags.get( token ).unwrap().clone() , 1.0 ) ) ; 
+                prev2 = prev ; 
+                prev = self.tags.get( token ).unwrap() ; 
+            }
+
+        }
+
+        output
+    }
+
     fn get_features<'a>(
-        &self , 
         i: usize , 
-        word: &str ,  
-        context: &Vec<String> ,
+        word: &'a str ,  
+        context: &'a [&'a str] ,
         prev: &'a str , 
         prev2: &'a str
     ) -> HashMap<String,usize> {
-
-        let i = i + 2 ; 
 
         let mut features: HashMap<String,usize> = HashMap::new() ; 
         features.insert( "bias".to_owned() , 1 ) ; 
@@ -112,70 +187,13 @@ impl PerceptronTagger {
         features
     }
 
-    pub fn tag(
-        &self ,
-        tokens: Vec<&str>
-    ) -> Vec<(String,String,f32)> {
-
-        let mut prev: &str = "-START-" ; 
-        let mut prev2: &str = "-START2-" ; 
-        let mut output: Vec<(String,String,f32)> = Vec::new() ; 
-
-        let mut context: Vec<String> = Vec::new() ; 
-        context.push( "-START-".to_owned() ) ; 
-        context.push( "-START2-".to_owned() ) ; 
-        for token in tokens.iter() {
-            context.push( self.normalize( token ) ) 
-        }
-
-        context.push( "-END-".to_owned() ) ; 
-        context.push( "-END2-".to_owned() ) ; 
-
-        let mut i: usize = 0 ; 
-        for token in tokens.iter() {
-
-            if self.tags.get( token.to_owned() ).is_none() {
-                let features = self.get_features( i, token, &context, prev, prev2) ; 
-                let (tag , conf) = self.model.predict( features ) ; 
-                output.push( ( token.to_string() , tag.to_string() , conf ) ) ; 
-                prev2 = prev ; 
-                prev = tag ; 
-            }
-            else {
-                output.push( ( token.to_string() , self.tags.get( token.to_string().as_str() ).unwrap().to_owned() , 1.0 ) ) ; 
-                prev2 = prev ; 
-                prev = self.tags.get( token.to_owned() ).unwrap() ; 
-            }
-
-            i += 1 ; 
-        }
-
-        output
-    }
-
-    fn normalize(
-        &self ,
-        word: &str
-    ) -> String {
-        if word.contains( "-" ) && word.chars().nth(0).unwrap() != '-' {
-            return String::from( "!HYPHEN" )
-        }
-        if word.parse::<usize>().is_ok() && word.len() == 4 {
-            return String::from( "!YEAR" ) 
-        }
-        if word[0..1].parse::<usize>().is_ok() {
-            return String::from( "!DIGITS" )
-        }
-        word.to_lowercase()
-    }
-
 }
 
 fn main() {
-    let tagger = PerceptronTagger::new() ; 
-    let tags = tagger.tag( vec![ "Shubham" , "was" , "a" , "good" , "boy" ] ) ;
-    for tag in tags.iter() {
+    let tagger = PerceptronTagger::new( "weights.json" , "classes.txt" , "tags.json" )  ; 
+
+    let tags = tagger.tag( "shubham was a good boy" ) ;
+    for tag in &tags {
         println!( "{} {} {}" , tag.0 , tag.1 , tag.2 ) ; 
     }
-
 }
