@@ -1,0 +1,44 @@
+name: Build shared libs for Linux
+
+on: [ 'workflow_dispatch']
+
+jobs:
+  build_libs:
+      runs-on: ubuntu-latest
+      steps:
+
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      - name: Install x86_64 (amd64) Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+            target: x86_64-unknown-linux-gnu
+
+      - name: Build shared lib for x86_64 target
+        run: cargo build --target=x86_64-unknown-linux-gnu --release
+
+      - name: Install aarch64 (arm64) Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+            target: aarch64-unknown-linux-gnu
+
+      - name: Build shared lib for aarch64 target
+        run: cargo build --target=aarch64-unknown-linux-gnu --release
+
+      - name: Rename shared libraries
+        run: |
+            cp target/aarch64-unknown-linux-gnu/release/libsummarizer.so libsummarizer-aarch64-unknown-linux-gnu.so
+            cp target/x86_64-unknown-linux-gnu/release/libsummarizer.so libsummarizer-x86_64-unknown-linux-gnu.so
+
+      - name: Upload x86_64 shared library as artifact of the build
+        uses: actions/upload-artifact@v3
+        with:
+          name: libsummarizer-x86_64-unknown-linux-gnu
+          path: libsummarizer-x86_64-unknown-linux-gnu.so
+
+      - name: Upload aarch64 shared library as artifact of the build
+        uses: actions/upload-artifact@v3
+        with:
+          name: libsummarizer-aarch64-unknown-linux-gnu
+          path: libsummarizer-aarch64-unknown-linux-gnu.so
