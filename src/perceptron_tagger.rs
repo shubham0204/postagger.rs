@@ -1,5 +1,6 @@
 use std::{fs::read_to_string, collections::HashMap};
 use serde_json as json;
+use serde::Serialize;
 
 struct AveragedPerceptron {
     feature_weights: HashMap<String,HashMap<String,f32>> , 
@@ -71,6 +72,13 @@ impl AveragedPerceptron {
 
 }
 
+#[derive(Serialize)]
+pub struct Tag<'a>{
+    pub word: &'a str , 
+    pub tag: String , 
+    pub conf: f32
+}
+
 pub struct PerceptronTagger {
     model: AveragedPerceptron , 
     tags: HashMap<String,String>
@@ -103,18 +111,18 @@ impl PerceptronTagger {
     pub fn tag<'a>(
         &'a self , 
         sentence: &'a str
-    ) -> Vec<(&'a str,String,f32)> {
+    ) -> Vec<Tag> {
         self.assign_tags( sentence.split_whitespace().collect::<Vec<&str>>() )
     }
 
     fn assign_tags<'a>(
         &'a self ,
         tokens: Vec<&'a str>
-    ) -> Vec<(&'a str,String,f32)> {
+    ) -> Vec<Tag> {
 
         let mut prev: &str = "-START-" ; 
         let mut prev2: &str = "-START2-" ; 
-        let mut output: Vec<(&str,String,f32)> = Vec::new() ; 
+        let mut output: Vec<Tag> = Vec::new() ; 
 
         let mut context: Vec<&str> = Vec::new() ; 
         context.push( prev ) ; 
@@ -144,12 +152,24 @@ impl PerceptronTagger {
             if self.tags.get( token ).is_none() {
                 let features = Self::get_features( i + 2 , token, &context, prev, prev2 ) ; 
                 let (tag , conf) = self.model.predict( features ) ; 
-                output.push( ( token , tag.to_string() , conf ) ) ; 
+                output.push( 
+                    Tag {
+                        word: token , 
+                        tag: tag.to_string() , 
+                        conf
+                    } 
+                ) ; 
                 prev2 = prev ; 
                 prev = tag ; 
             }
             else {
-                output.push( ( token , self.tags.get( token ).unwrap().clone() , 1.0 ) ) ; 
+                output.push( 
+                    Tag {
+                        word: token , 
+                        tag: self.tags.get( token ).unwrap().clone() , 
+                        conf: 1.0
+                    } 
+                ) ;
                 prev2 = prev ; 
                 prev = self.tags.get( token ).unwrap() ; 
             }
