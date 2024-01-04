@@ -1,6 +1,20 @@
 # Parts of Speech Tagging - Perceptron Tagger in Rust
 
-## C API
+## Rust
+
+```rust
+use postagger::PerceptronTagger;
+
+fn main() {
+    let tagger = PerceptronTagger::new( "tagger/weights.json" , "tagger/classes.txt" , "tagger/tags.json" )  ; 
+    let tags = tagger.tag( "the quick brown fox jumps over the lazy dog" ) ;
+    for tag in &tags {
+        println!( "{} {} {}" , tag.word , tag.tag , tag.conf ) ; 
+    }
+}
+````
+
+## C
 
 ```c
 #include "postagger.h"
@@ -17,7 +31,7 @@ int main( int argc , char** argv ) {
 }
 ```
 
-## Java API
+## Java
 
 ```java
 import java.util.List;

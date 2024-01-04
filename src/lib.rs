@@ -1,4 +1,5 @@
-pub mod perceptron_tagger;
+mod perceptron_tagger;
+pub use self::perceptron_tagger::PerceptronTagger;
 
 mod c_binding {
 

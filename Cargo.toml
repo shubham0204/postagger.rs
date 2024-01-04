@@ -1,12 +1,22 @@
 [package]
 name = "postagger"
-version = "0.1.0"
+version = "0.0.3"
 edition = "2021"
+description = "NLTK-inspired parts-of-speech tagger"
+homepage = "https://github.com/shubham0204/postagger.rs"
+repository = "https://github.com/shubham0204/postagger.rs"
+license-file = "LICENSE"
+keywords = [ "nlp" , "pos-tagger" , "machine-learning" ]
+exclude = [ 
+    ".github" , 
+    "examples" , 
+    "tagger"
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-crate-type = [ "cdylib" ]
+crate-type = [ "rlib" , "cdylib" ]
 
 [dependencies]
 serde = { version = "1.0.192" , features = ["derive"] }
