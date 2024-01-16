@@ -1,6 +1,23 @@
+![postagger-banner](https://github.com/shubham0204/postagger.rs/assets/41076823/5c818699-bf20-4589-a433-16edc5f4b1b1)
+
 # Parts of Speech Tagging - Perceptron Tagger in Rust
 
-## Rust
+[![POSTagger crate](https://img.shields.io/crates/v/postagger.svg)](https://crates.io/crates/postagger)
+[![POSTagger documentation](https://docs.rs/postagger/badge.svg)](https://docs.rs/postagger)
+
+> A simple, cross-platform, NLTK-inspired averaged perceptron tagger written in Rust
+
+**Contents**
+
+1. [Usage](#usage)
+    1. [Usage in Rust](#usage-in-rust)
+    2. [Usage in C](#usage-in-c)
+    3. [Usage in Java](#usage-in-java)
+2. [Useful External Resources](#useful-external-resources)
+
+## Usage
+
+### Usage in Rust
 
 ```rust
 use postagger::PerceptronTagger;
@@ -14,7 +31,15 @@ fn main() {
 }
 ````
 
-## C
+### Usage in C
+
+#### Generate C headers and shared library
+
+```
+$> cbindgen --lang C --output examples/c/postagger.h
+$> cargo build --target=x86_64-unknown-linux-gnu --release
+```
+
 
 ```c
 #include "postagger.h"
@@ -31,7 +56,7 @@ int main( int argc , char** argv ) {
 }
 ```
 
-## Java
+### Usage in Java
 
 ```java
 import java.util.List;
@@ -60,9 +85,7 @@ public class Main {
 }
 ```
 
-## Generate C headers and shared library
+## Useful External Resources
 
-```
-$> cbindgen --lang C --output examples/c/postagger.h
-$> cargo build --target=x86_64-unknown-linux-gnu --release
-```
+- [`perceptron.py` on NLTK](https://github.com/nltk/nltk/blob/develop/nltk/tag/perceptron.py)
+- [A Good Part-of-Speech Tagger in about 200 Lines of Python](https://explosion.ai/blog/part-of-speech-pos-tagger-in-python)
