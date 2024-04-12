@@ -6,6 +6,7 @@ description = "NLTK-inspired parts-of-speech tagger"
 homepage = "https://github.com/shubham0204/postagger.rs"
 repository = "https://github.com/shubham0204/postagger.rs"
 license-file = "LICENSE"
+readme = "README.cratesio.md"
 keywords = [ "nlp" , "pos-tagger" , "machine-learning" ]
 exclude = [ 
     ".github" , 
