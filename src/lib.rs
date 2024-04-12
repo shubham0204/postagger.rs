@@ -8,8 +8,8 @@ mod c_binding {
 
     #[repr(C)]
     pub struct CTag {
-        word: *const u8 , 
-        tag: *const u8 , 
+        word: *const c_char , 
+        tag: *const c_char , 
         conf: c_float ,
     }
 
@@ -64,8 +64,8 @@ mod c_binding {
                         std::mem::forget( word ) ; 
                         std::mem::forget( tag ) ;
                         CTag{ 
-                            word: word_ptr.cast::<u8>() , 
-                            tag: tag_ptr.cast::<u8>() , 
+                            word: word_ptr.cast::<c_char>() , 
+                            tag: tag_ptr.cast::<c_char>() , 
                             conf: x.conf
                         } 
                     }
